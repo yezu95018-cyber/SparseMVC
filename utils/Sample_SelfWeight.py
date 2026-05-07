@@ -11,7 +11,7 @@ class AttentionMechanism(nn.Module):
         self.value_layer = nn.Linear(feature_dim, feature_dim, bias=False)
         self.register_buffer("scale", torch.tensor(feature_dim, dtype=torch.float32).sqrt())
 
-    def compute_attention_weights(self, z_all, zs):
+    def compute_attention_weights(self, z_all, zs, rec_errors=None, reliability_alpha=0.0):
         """
         计算注意力权重，基于全局特征 (z_all) 和每个视图的特征 (zs)。
 
@@ -49,6 +49,13 @@ class AttentionMechanism(nn.Module):
         # 计算点积得分，通过 `torch.einsum` 实现 Q 和 K 的点积，结果形状为 [batch_size, view_count]
         # 同时对点积结果除以缩放因子 self.scale，以稳定梯度 scores = torch.bmm(Q.unsqueeze(1), K.transpose(1, 2)).squeeze(1) / self.scale
         scores = torch.einsum('bf,bvf->bv', Q, K) / self.scale
+
+        if reliability_alpha != 0.0 and rec_errors is not None:
+            # Penalize high reconstruction-error views before softmax; lower error means higher reliability.
+            rec_errors = (rec_errors - rec_errors.mean(dim=0, keepdim=True)) / (
+                    rec_errors.std(dim=0, keepdim=True) + 1e-8
+            )
+            scores = scores - reliability_alpha * rec_errors
 
         # 使用 softmax 函数对每个样本的视图相关性得分进行归一化，生成注意力权重，形状为 [batch_size, view_count]
         attention_weights = F.softmax(scores, dim=1)
