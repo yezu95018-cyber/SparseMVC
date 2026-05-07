@@ -87,10 +87,11 @@ class Decoder(nn.Module):
 
 
 class Network(nn.Module):
-    def __init__(self, view, input_size, feature_dim, high_feature_dim, device):
+    def __init__(self, view, input_size, feature_dim, high_feature_dim, device, reliability_alpha=0.0):
         super(Network, self).__init__()  # 调用父类的构造函数
         self.feature_dim = feature_dim
         self.high_feature_dim = high_feature_dim
+        self.reliability_alpha = reliability_alpha
         self.view = view  # 视角数量
         self.encoders = []  # 编码器列表
         self.decoders = []  # 解码器列表
@@ -159,8 +160,8 @@ class Network(nn.Module):
         xrs = []  # 重建后的输入列表
         zs = []  # 编码后的特征列表
         activation = []
-        xs_dict2tensors = [xs[key] for key in sorted(xs.keys())]
-        xs2one = torch.cat(xs_dict2tensors, dim=1)
+        xs_dict2tensors = [xs[key] for key in sorted(xs.keys())]  #先把所有视图xs[v]拼接起来
+        xs2one = torch.cat(xs_dict2tensors, dim=1)  #得到xs2one计算出z_all
         z_all, hidden_activation_all = self.encoders[self.view](xs2one)
         activation.append(hidden_activation_all)
 
@@ -169,14 +170,23 @@ class Network(nn.Module):
             activation.append(hidden_activation)
             zs.append(z)  # 添加到编码特征列表
 
-        Wz = self.attention_mechanism.compute_attention_weights(z_all, zs)
+        for v in range(self.view):
+            xr = self.decoders[v](zs[v])
+            xrs.append(xr)  # 添加到重建输入列表
+
+        # Reconstruction error acts as an optional reliability penalty for noisy views.
+        rec_errors = torch.stack(
+            [torch.mean((xs[v] - xrs[v]) ** 2, dim=1) for v in range(self.view)],
+            dim=1
+        )
+        Wz = self.attention_mechanism.compute_attention_weights(
+            z_all, zs, rec_errors=rec_errors, reliability_alpha=self.reliability_alpha
+        )
         # print(f'Wz:{Wz}')
 
         for v in range(self.view):
-            xr = self.decoders[v](zs[v])
             r = normalize(self.common_information_module(zs[v]), dim=1)
             rs.append(r)  # 添加到视角一致特征列表
-            xrs.append(xr)  # 添加到重建输入列表
 
         xr_all = self.decoders[self.view](z_all)
         H = self.feature_fusion(zs, Wz)  # 全局特征融合

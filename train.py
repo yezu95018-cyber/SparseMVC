@@ -134,6 +134,7 @@ if __name__ == '__main__':
             parser.add_argument("--high_feature_dim", default=20) # fixed
             parser.add_argument("--seed", default=50) # fixed
             parser.add_argument("--weight_decay", default=0.0) # specified
+            parser.add_argument("--reliability_alpha", type=float, default=0.0)
             # TODO 选取noise ratio比例的样本，随机(1到view-1)个视图做添加高斯噪声处理
             parser.add_argument('--noise_ratio', type=float, default=0.0) # specified
             # TODO 选取conflict ratio比例的样本，随机选择一个视图的数据用另一个类别的样本的同视图数据替换
@@ -211,7 +212,8 @@ if __name__ == '__main__':
                 # TODO 重点来了: model
                 from SparseMVC import Network
 
-                model = Network(view, dims, args.feature_dim, args.high_feature_dim, device)
+                model = Network(view, dims, args.feature_dim, args.high_feature_dim, device,
+                                reliability_alpha=args.reliability_alpha)
                 print(model)
                 model = model.to(device)
                 state = model.state_dict()
