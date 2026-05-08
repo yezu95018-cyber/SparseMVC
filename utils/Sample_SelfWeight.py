@@ -51,13 +51,12 @@ class AttentionMechanism(nn.Module):
         scores = torch.einsum('bf,bvf->bv', Q, K) / self.scale
 
         if reliability_alpha != 0.0 and rec_errors is not None:
-            # Reconstruction-error-guided reliability gate; lower error keeps more correlation signal.
+            # Penalize high reconstruction-error views before softmax; lower error means higher reliability.
             rec_errors = rec_errors.to(device=scores.device, dtype=scores.dtype)
             rec_errors = (rec_errors - rec_errors.mean(dim=0, keepdim=True)) / (
                     rec_errors.std(dim=0, keepdim=True) + 1e-8
             )
-            reliability_gate = 2.0 * torch.sigmoid(-reliability_alpha * rec_errors)
-            scores = scores * reliability_gate
+            scores = scores - reliability_alpha * rec_errors
 
         # 使用 softmax 函数对每个样本的视图相关性得分进行归一化，生成注意力权重，形状为 [batch_size, view_count]
         attention_weights = F.softmax(scores, dim=1)
