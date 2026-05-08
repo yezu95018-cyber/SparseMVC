@@ -56,7 +56,7 @@ class AttentionMechanism(nn.Module):
             rec_errors = (rec_errors - rec_errors.mean(dim=0, keepdim=True)) / (
                     rec_errors.std(dim=0, keepdim=True) + 1e-8
             )
-            reliability_gate = torch.sigmoid(-reliability_alpha * rec_errors)
+            reliability_gate = 2.0 * torch.sigmoid(-reliability_alpha * rec_errors)
             scores = scores * reliability_gate
 
         # 使用 softmax 函数对每个样本的视图相关性得分进行归一化，生成注意力权重，形状为 [batch_size, view_count]
