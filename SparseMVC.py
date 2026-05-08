@@ -191,7 +191,7 @@ class Network(nn.Module):
         xr_all = self.decoders[self.view](z_all)
         H = self.feature_fusion(zs, Wz)  # 全局特征融合
 
-        return xrs, zs, rs, H, xr_all, z_all, activation, means  # 返回重建后的输入、编码特征、视角一致特征和全局融合特征
+        return xrs, zs, rs, H, xr_all, z_all, activation, means, rec_errors  # 返回重建后的输入、编码特征、视角一致特征和全局融合特征
 
 
 

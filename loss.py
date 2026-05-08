@@ -50,12 +50,16 @@ class ContrastiveLoss(nn.Module):
         # 逐行计算损失：-log(分子/分母之和)
         loss_partial = -torch.log(numerator / torch.sum(denominator, dim=1))
 
-        # 计算平均损失
-        loss = torch.sum(loss_partial) / N
+        if weight is not None and torch.is_tensor(weight) and weight.ndim > 0:
+            weight = weight.to(device=loss_partial.device, dtype=loss_partial.dtype)
+            loss = torch.sum(loss_partial * weight) / (torch.sum(weight) + 1e-8)
+        else:
+            # 计算平均损失
+            loss = torch.sum(loss_partial) / N
 
-        # 如果提供了权重参数，应用权重
-        if weight is not None:
-            loss = weight * loss
+            # 如果提供了标量权重参数，应用权重
+            if weight is not None:
+                loss = weight * loss
 
         return loss
 

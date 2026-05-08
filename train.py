@@ -45,7 +45,7 @@ def pretrain(Epoch):
         # 清空优化器中的梯度
         optimizer.zero_grad()
         # 前向传播：通过模型计算重建后的输入、隐藏表示和其他中间结果
-        xrs, zs, rs, H, xr_all, z_all, activation, means = model(xs)
+        xrs, zs, rs, H, xr_all, z_all, activation, means, rec_errors = model(xs)
         # 计算平均值
         mean_average = sum(means) / len(means)
         # TODO pre 1 全局视角
@@ -80,7 +80,7 @@ def contrastive_train(Epoch, dataset_name, Plot_SDD):
         for v in range(view):
             xs[v] = xs[v].to(device)  # 将数据移动到指定设备（如GPU）
         optimizer.zero_grad()  # 清空梯度
-        xrs, zs, rs, H, xr_all, z_all, activation, means = model(xs)  # TODO 2.前向传播，获取重建后的输入、编码特征、视角一致特征和全局特征
+        xrs, zs, rs, H, xr_all, z_all, activation, means, rec_errors = model(xs)  # TODO 2.前向传播，获取重建后的输入、编码特征、视角一致特征和全局特征
         loss_list = []
         # if Plot_SDD:
         #     xs_list = list(xs.values())
@@ -102,7 +102,10 @@ def contrastive_train(Epoch, dataset_name, Plot_SDD):
             # 如果稀疏程度较低直接使用均方误差损失;否则，使用自定义的自编码器损失函数，考虑稀疏正则项
             loss_list.append(ae_loss_function(means[v], xs[v], xrs[v], activation[v + 1], criterion, rho=0.05, beta=1.0))
             # 自加权对比学习损失
-            loss_list.append(contrastiveloss(H, rs[v], w2[v]))  # 计算对比损失
+            rec_v = rec_errors[:, v]
+            rec_v = (rec_v - rec_v.mean()) / (rec_v.std() + 1e-8)
+            sample_weight_v = torch.softmax(-rec_v, dim=0) * rec_v.shape[0]
+            loss_list.append(contrastiveloss(H, rs[v], w2[v] * sample_weight_v))  # 计算对比损失
         loss = sum(loss_list)  # 汇总所有视角的损失
         loss.backward()  # 反向传播计算梯度
         optimizer.step()  # 更新模型参数
