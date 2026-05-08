@@ -92,7 +92,7 @@ def valid(model, device, dataset, view, data_size, class_num, pre_train=False, c
 
         # 禁用梯度计算，进行前向传播
         with torch.no_grad():
-            xrs, zs, rs, Y, _, z_all, _, _ = model(xs)
+            xrs, zs, rs, Y, _, z_all, _, _, _ = model(xs)
 
     # ===================== 预训练阶段 =====================
     if pre_train:
